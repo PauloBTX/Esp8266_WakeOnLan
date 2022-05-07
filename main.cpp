@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <WiFiUdp.h>
 #include <WakeOnLan.h>
@@ -6,49 +7,62 @@
 WiFiUDP UDP;
 WakeOnLan WOL(UDP);
 
-WiFiServer server(80);
+// ESPECIFICA A PORTA EM QUE O SERVIDOR FUNCIONARÁ.
+ESP8266WebServer server(80);
 
+// INFORME AS CONFIGURAÇÕES DO WIFI
+const char *ssid = "xxxxx";
+const char *password = "xxxxxxx";
 
-const char* ssid     = "xxxxx";
-const char* password = "xxxxxxx";
+// INFORME O MACADDRESS
+const char *MACAddress = "xxxxxxxxxxx";
 
-void wakeMyPC() {
-    const char *MACAddress = "xxxxxxxxxxx";
-  
-    WOL.sendMagicPacket(MACAddress); // Send Wake On Lan packet with the above MAC address. Default to port 9.
-    // WOL.sendMagicPacket(MACAddress, 7); // Change the port number
+void wakeMyPC()
+{
+  // ACENDE O LED NATIVO DO NODEMCU
+  digitalWrite(LED_BUILTIN, LOW);
+  Serial.print("Enviando pacote Wake on Lan!");
+  WOL.sendMagicPacket(MACAddress);
+  delay(1000);
+  // APAGA O LED NATIVO DO NODEMCU
+  digitalWrite(LED_BUILTIN, HIGH);
+  server.send(200, "text/plain", "Pacote mágico enviado. Wake on Lan!");
+  Serial.print("Pacote mágico enviado. Wake on Lan!");
 }
 
 void setup()
 {
-    WOL.setRepeat(3, 100); // Optional, repeat the packet three times with 100ms between. WARNING delay() is used between send packet function.
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+  WOL.setRepeat(3, 100);
+  Serial.begin(9600);
 
-    Serial.begin(115200);
+  // CONECTA NO WIFI
+  Serial.print("Conectando em ");
+  Serial.println(ssid);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi conectado.");
+  Serial.println("Endereço IP: ");
+  Serial.println(WiFi.localIP());
 
-    // Connect to Wi-Fi network with SSID and password
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    // Print local IP address and start web server
-    Serial.println("");
-    Serial.println("WiFi connected.");
-    Serial.println("IP address: ");
-    Serial.println(WiFi.localIP());
-    server.begin();
+  // Inicia o servidor
+  server.begin();
+  Serial.println("Servidor iniciado.");
 
-    WOL.calculateBroadcastAddress(WiFi.localIP(), WiFi.subnetMask()); // Optional  => To calculate the broadcast address, otherwise 255.255.255.255 is used (which is denied in some networks).
-    server.on(“/wakeMyPC, wakeMyPC);
-    //wakeMyPC();
+  WOL.calculateBroadcastAddress(WiFi.localIP(), WiFi.subnetMask());
+
+  // Rotas
+  server.on("/wakeMyPC", wakeMyPC);
 }
 
-
-void loop() {
-
-    server.handleClient();    //Handling of incoming requests
-
+void loop()
+{
+  server.handleClient();
 }
